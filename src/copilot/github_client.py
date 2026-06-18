@@ -72,6 +72,15 @@ class GitHubClient:
             follow_redirects=True,
         )
 
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self) -> "GitHubClient":
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self.close()
+
     # ---------- reading ----------
 
     def get_pull_request(self, owner: str, repo: str, number: int) -> PullRequest:
@@ -137,11 +146,20 @@ class GitHubClient:
         return merged
 
     def get_review_comment_bodies(self, owner: str, repo: str, number: int) -> list[str]:
-        """Bodies of all existing inline review comments on a PR (for dedup)."""
-        comments = self._get(
-            f"/repos/{owner}/{repo}/pulls/{number}/comments", params={"per_page": 100}
+        """Bodies of all existing inline review comments on a PR (for dedup).
+
+        Paginated: a long-lived PR can accumulate >100 comments, and missing the
+        tail would make dedup re-post old findings on every push.
+        """
+        comments = self._get_paginated(
+            f"/repos/{owner}/{repo}/pulls/{number}/comments"
         )
         return [c["body"] for c in comments]
+
+    def get_review_summary_bodies(self, owner: str, repo: str, number: int) -> list[str]:
+        """Bodies of all review summaries on a PR (where 422-fallback comments land)."""
+        reviews = self._get_paginated(f"/repos/{owner}/{repo}/pulls/{number}/reviews")
+        return [r["body"] for r in reviews if r.get("body")]
 
     # ---------- writing ----------
 
@@ -178,6 +196,21 @@ class GitHubClient:
         resp.raise_for_status()
         return resp.json()
 
+    def _get_paginated(self, path: str, params: dict | None = None) -> list[Any]:
+        """Follow GitHub's Link header to fetch every page of a list endpoint."""
+        params = {**(params or {}), "per_page": 100}
+        items: list[Any] = []
+        url: str | None = path
+        next_params: dict | None = params
+        while url:
+            resp = self._client.get(url, params=next_params)
+            resp.raise_for_status()
+            items.extend(resp.json())
+            # Subsequent page URLs from the Link header already carry their params.
+            url = resp.links.get("next", {}).get("url")
+            next_params = None
+        return items
+
     def _get_text(self, path: str, accept: str) -> str:
         resp = self._client.get(path, headers={"Accept": accept})
         resp.raise_for_status()
@@ -187,5 +220,8 @@ class GitHubClient:
 def _fallback_comments_md(comments: list[dict[str, Any]]) -> str:
     parts = ["\n\n---\n### Inline comments (could not be anchored)\n"]
     for c in comments:
+        # Body is emitted verbatim — it ends with the <!-- copilot-fp:… --> marker.
+        # Dedup picks these up via get_review_summary_bodies() on a later re-review,
+        # so fallback-posted findings aren't re-posted as duplicates.
         parts.append(f"\n**`{c['path']}:{c['line']}`**\n\n{c['body']}\n")
     return "".join(parts)

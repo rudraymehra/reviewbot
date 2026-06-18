@@ -78,9 +78,9 @@ def learn(
     from .reviewer import rules_to_json, save_rules
 
     owner, name = parse_repo(repo)
-    with console.status("Learning…") as status:
+    with console.status("Learning…") as status, GitHubClient() as gh:
         rules = learn_conventions(
-            GitHubClient(), owner, name,
+            gh, owner, name,
             on_progress=lambda msg: status.update(f"[cyan]{msg}"),
         )
 

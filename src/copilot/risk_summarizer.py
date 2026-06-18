@@ -35,4 +35,16 @@ def summarize_risk(pr: PullRequest, findings: list[Finding], usage: Usage) -> Ri
         output_format=RiskSummary,
     )
     usage.add(response.usage)
-    return response.parsed_output
+    parsed = response.parsed_output
+    if parsed is None:
+        # Output truncated at max_tokens (thinking eats the budget) or no parseable
+        # block. Fall back to a neutral summary so the (already-paid-for) inline
+        # findings still get posted instead of crashing the whole review.
+        return RiskSummary(
+            quality_score=50,
+            overall_assessment="Risk summary could not be generated (model output was truncated). See the inline findings below for the actionable detail.",
+            highest_risk_changes=[],
+            merge_recommendation="approve_with_nits",
+            rationale="Summary generation did not complete; judge this PR from the inline findings rather than this placeholder.",
+        )
+    return parsed

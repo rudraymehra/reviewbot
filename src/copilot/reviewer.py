@@ -104,19 +104,31 @@ async def _review_files(pr, files, contexts, on_progress, settings) -> ReviewOut
         async with sem:
             if on_progress:
                 on_progress(f"Reviewing {fd.path}…")
-            response = await client.messages.parse(
-                model=settings.copilot_model,
-                max_tokens=16000,
-                thinking={"type": "adaptive"},
-                system=system,
-                messages=[{
-                    "role": "user",
-                    "content": _build_user_msg(pr, fd, contexts[fd.path], settings.max_file_diff_chars),
-                }],
-                output_format=FileReview,
-            )
+            try:
+                response = await client.messages.parse(
+                    model=settings.copilot_model,
+                    max_tokens=16000,
+                    thinking={"type": "adaptive"},
+                    system=system,
+                    messages=[{
+                        "role": "user",
+                        "content": _build_user_msg(pr, fd, contexts[fd.path], settings.max_file_diff_chars),
+                    }],
+                    output_format=FileReview,
+                )
+            except anthropic.APIError as exc:
+                # A transient blip on one file must not lose the whole PR's review.
+                if on_progress:
+                    on_progress(f"⚠ API error reviewing {fd.path}; skipping ({type(exc).__name__})")
+                return
             outcome.usage.add(response.usage)
-            for finding in response.parsed_output.findings:
+            parsed = response.parsed_output
+            if parsed is None:
+                # Output truncated at max_tokens or model returned no parseable block.
+                if on_progress:
+                    on_progress(f"⚠ No parseable output for {fd.path} (truncated/refused); skipping")
+                return
+            for finding in parsed.findings:
                 finding.file = fd.path  # trust the parser, not the model, for paths
                 anchored = anchor_line(fd, finding.line)
                 if anchored is None:
@@ -129,9 +141,10 @@ async def _review_files(pr, files, contexts, on_progress, settings) -> ReviewOut
         return outcome
 
     # Warm the prompt cache with the first file, then fan out the rest.
+    # return_exceptions=True so one unexpected failure can't discard the others.
     await review_one(files[0])
     if len(files) > 1:
-        await asyncio.gather(*(review_one(fd) for fd in files[1:]))
+        await asyncio.gather(*(review_one(fd) for fd in files[1:]), return_exceptions=True)
 
     # Deterministic ordering regardless of completion order.
     outcome.findings.sort(key=lambda f: (f.file, f.line))

@@ -42,4 +42,10 @@ def learn_conventions(gh: GitHubClient, owner: str, repo: str, on_progress=None)
         }],
         output_format=ConventionRules,
     )
-    return response.parsed_output
+    rules = response.parsed_output
+    if rules is None:
+        raise RuntimeError(
+            "Convention extraction produced no parseable output (model output was "
+            "likely truncated). Try a smaller convention_pr_sample or a higher max_tokens."
+        )
+    return rules

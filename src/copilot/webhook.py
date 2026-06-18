@@ -67,9 +67,11 @@ async def webhook(
     if action not in ("opened", "synchronize", "reopened"):
         return {"status": "ignored", "reason": f"action {action!r} not handled"}
 
-    repo_full = data["repository"]["full_name"]
+    repo_full = data.get("repository", {}).get("full_name")
+    number = data.get("pull_request", {}).get("number")
+    if not repo_full or "/" not in repo_full or number is None:
+        return {"status": "ignored", "reason": "payload missing repository/pull_request fields"}
     owner, repo = repo_full.split("/", 1)
-    number = data["pull_request"]["number"]
 
     background.add_task(_review_in_background, owner, repo, number)
     return {"status": "accepted", "pr": f"{repo_full}#{number}", "action": action}

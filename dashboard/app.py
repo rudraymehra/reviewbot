@@ -45,9 +45,11 @@ c1.metric("Reviews", len(df))
 c2.metric("Avg quality score", f"{df.quality_score.mean():.0f}/100")
 c3.metric("Total findings", int(df.finding_count.sum()))
 total_in = int(df.input_tokens.sum())
+total_cached = int(df.cached_tokens.sum()) if "cached_tokens" in df else 0
 total_out = int(df.output_tokens.sum())
-# claude-opus-4-8 pricing: $5 / $25 per MTok (cached input ~0.1x, ignored here = upper bound)
-cost = total_in / 1e6 * 5 + total_out / 1e6 * 25
+# claude-opus-4-8 pricing: $5 / $25 per MTok; cached input reads bill at ~0.1x ($0.50/MTok).
+# input_tokens is the UNCACHED remainder, so cached reads must be added separately.
+cost = total_in / 1e6 * 5 + total_cached / 1e6 * 0.5 + total_out / 1e6 * 25
 c4.metric("Est. API cost", f"${cost:.2f}")
 
 # ---- charts ----

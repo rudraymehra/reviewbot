@@ -72,8 +72,12 @@ def verify_findings(
         return list(findings), []  # fail open — better a nit too many than a lost review
     usage.add(response.usage)
 
+    verdicts = response.parsed_output
+    if verdicts is None:
+        # Truncated/refused output — honour the documented fail-open contract.
+        return list(findings), []
     keep_by_index: dict[int, bool] = {
-        v.index: v.keep for v in response.parsed_output.verdicts
+        v.index: v.keep for v in verdicts.verdicts
     }
     kept: list[Finding] = []
     suppressed: list[Finding] = []
