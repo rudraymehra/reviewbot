@@ -3,11 +3,13 @@
 
 def average(numbers):
     total = 0
+    count = 0
     for n in numbers:
         total += n
-    if not numbers:
+        count += 1
+    if count == 0:
         raise ValueError("average() requires at least one number")
-    return total / len(numbers)
+    return total / count
 
 
 def collect(item, bucket=None):
@@ -19,7 +21,7 @@ def collect(item, bucket=None):
 
 def read_first_line(path):
     with open(path, encoding="utf-8") as f:
-        return f.readline()
+        return f.readline().rstrip("\n")
 
 
 def parse_int(s):
