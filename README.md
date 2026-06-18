@@ -81,7 +81,7 @@ copilot history
 pytest
 ```
 
-Unit tests cover the diff parser (line attribution, commentable-line map, anchor snapping), comment fingerprinting/dedup, and the schema/URL validators — the pieces where silent bugs would corrupt reviews.
+Unit tests cover the diff parser (line attribution, commentable-line map, anchor snapping), comment fingerprinting/dedup, and the schema/URL validators, plus the three Claude passes (review/verify/risk), convention learning, and the full pipeline wiring — all with the model stubbed (no API key, no cost). See [TESTING.md](TESTING.md) for the layer-by-layer breakdown.
 
 ## How each rubric feature maps to code
 

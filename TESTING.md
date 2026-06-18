@@ -17,7 +17,7 @@ verify the parts that need live credentials.
 
 ```bash
 source .venv/bin/activate
-pytest            # 26 tests
+pytest            # 46 tests
 ```
 
 | File | Covers |
@@ -27,11 +27,21 @@ pytest            # 26 tests
 | `tests/test_webhook.py` | health endpoint; 401 on missing/forged `X-Hub-Signature-256`; non-PR events and irrelevant actions ignored; `opened`/`synchronize`/`reopened` accepted and queued (review job stubbed — no network) |
 | `tests/test_storage.py` | save → list → get roundtrip on a temp SQLite DB; missing-ID returns None |
 | `tests/test_models.py` | severity enum validation, quality-score bounds, PR/repo URL parsing |
+| `tests/test_reviewer.py` | file-skip rules (lockfiles/binaries/deletions); pass-1 anchoring keeps exact lines, snaps off-by-a-few, drops un-anchorable; token-usage accounting; empty diff makes no Claude call |
+| `tests/test_verifier.py` | pass-1.5 keep/suppress split per verdict; **fails open** on missing verdicts and on `APIError`; empty findings short-circuit without a call |
+| `tests/test_risk_summarizer.py` | pass-2 feeds findings + diff stats into the prompt, accumulates usage, handles the clean-PR (no findings) path |
+| `tests/test_conventions.py` | learning feeds merged-PR diffs + human comments into the prompt and returns ≥3 rules; raises cleanly when no merged PRs exist |
+| `tests/test_pipeline.py` | full wiring review→verify→risk→dedup→post→persist: suppressed findings never posted, already-posted comments deduped, result persisted once |
 
-These cover every place a silent bug would corrupt a review (wrong line, wrong
-file, forged webhook, lost data). The Claude calls themselves are *schema-guarded*
-at runtime: `messages.parse()` rejects any response that doesn't match the
-Pydantic models, so a malformed model response raises instead of posting garbage.
+The Claude-backed modules are tested with a `fake_claude` stub (`tests/conftest.py`)
+that returns queued Pydantic outputs and records each call — no network, no API
+key, no cost. At runtime the real calls are additionally *schema-guarded*:
+`messages.parse()` rejects any response that doesn't match the Pydantic models,
+so a malformed model response raises instead of posting garbage.
+
+Together these cover every place a silent bug would corrupt a review: wrong line,
+wrong file, forged webhook, lost data, a real finding silently dropped, or a
+duplicate/false-positive comment reaching the PR.
 
 ## 3. Smoke checks (no keys needed)
 
@@ -85,11 +95,11 @@ Tick these off in order — each one builds on the previous:
 
 ## 6. Current verification status
 
-Last full run: 2026-06-10 (local machine, Python 3.14).
+Last full run: 2026-06-18 (local machine, Python 3.12).
 
 | Check | Status |
 |---|---|
-| `pytest` (26 tests) | ✅ pass |
+| `pytest` (46 tests) | ✅ pass |
 | CLI: `review/learn/serve/history --help` | ✅ pass |
 | `copilot history` on fresh DB | ✅ pass |
 | Dashboard compiles | ✅ pass |
