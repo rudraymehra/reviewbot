@@ -61,9 +61,16 @@ def reviewable_files(files: list[FileDiff]) -> list[FileDiff]:
     out = []
     for f in files:
         name = f.path.rsplit("/", 1)[-1]
-        if f.is_deleted or name in SKIP_NAMES or name.endswith(SKIP_SUFFIXES):
-            continue
-        out.append(f)
+        
+        is_deleted = f.is_deleted
+        is_skip_name = name in SKIP_NAMES
+        is_skip_suffix = name.endswith(SKIP_SUFFIXES)
+        
+        should_skip_file = is_deleted or is_skip_name or is_skip_suffix
+        
+        if not should_skip_file:
+            out.append(f)
+            
     return out
 
 
@@ -152,10 +159,16 @@ async def _review_files(pr, files, contexts, on_progress, settings) -> ReviewOut
 
 
 def save_rules(rules_json: str, repo_dir: Path = Path(".")) -> Path:
-    path = repo_dir / RULES_PATH
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(rules_json)
-    return path
+    rules_file_path = repo_dir / RULES_PATH
+    
+    # Ensure the directory exists before writing
+    rules_directory = rules_file_path.parent
+    rules_directory.mkdir(parents=True, exist_ok=True)
+    
+    # Write the rules to the file
+    rules_file_path.write_text(rules_json)
+    
+    return rules_file_path
 
 
 def rules_to_json(rules) -> str:

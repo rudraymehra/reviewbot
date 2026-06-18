@@ -13,10 +13,15 @@ def summarize_risk(pr: PullRequest, findings: list[Finding], usage: Usage) -> Ri
     settings = get_settings()
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key or None)
 
-    findings_md = "\n".join(
-        f"- [{f.severity}/{f.confidence}] {f.file}:{f.line} — {f.title}: {f.issue}"
-        for f in findings
-    ) or "(no findings — the diff looked clean)"
+    if not findings:
+        findings_md = "(no findings — the diff looked clean)"
+    else:
+        finding_lines = []
+        for f in findings:
+            finding_text = f"- [{f.severity}/{f.confidence}] {f.file}:{f.line} — {f.title}: {f.issue}"
+            finding_lines.append(finding_text)
+        
+        findings_md = "\n".join(finding_lines)
 
     user_msg = (
         f"PR: {pr.title} by @{pr.author} into {pr.base_branch}\n"
