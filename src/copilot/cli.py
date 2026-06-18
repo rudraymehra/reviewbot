@@ -105,6 +105,38 @@ def serve(
 
 
 @app.command()
+def doctor():
+    """Check local config & credentials are ready for a review (no network calls)."""
+    from .doctor import overall, run_checks
+
+    checks = run_checks()
+    icon = {
+        "ok": "[green]✓ ok[/green]",
+        "warn": "[yellow]⚠ warn[/yellow]",
+        "fail": "[red]✗ fail[/red]",
+    }
+    table = Table(title="copilot doctor")
+    table.add_column("Check")
+    table.add_column("Status")
+    table.add_column("Detail")
+    for c in checks:
+        table.add_row(c.name, icon[c.status], c.detail)
+    console.print(table)
+
+    status = overall(checks)
+    if status == "fail":
+        console.print(
+            "\n[red]Not ready[/red] — set the missing keys in .env "
+            "(copy .env.example), then re-run [bold]copilot doctor[/bold]."
+        )
+        raise typer.Exit(code=1)
+    if status == "warn":
+        console.print("\n[yellow]Ready for `copilot review`[/yellow] — optional items noted above.")
+    else:
+        console.print("\n[green]All checks passed — ready to go.[/green]")
+
+
+@app.command()
 def history():
     """Show past reviews stored locally."""
     from .storage import list_reviews
