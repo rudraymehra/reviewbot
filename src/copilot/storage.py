@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS reviews (
 def _connect(db_path: str | None = None) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path or get_settings().copilot_db_path)
     conn.row_factory = sqlite3.Row
+
     conn.execute(SCHEMA)
     return conn
 
@@ -70,6 +71,8 @@ def get_review(review_id: int, db_path: str | None = None) -> dict | None:
         row = conn.execute("SELECT * FROM reviews WHERE id = ?", (review_id,)).fetchone()
         if row is None:
             return None
+        
         d = dict(row)
         d["result"] = json.loads(d.pop("result_json"))
+
         return d
