@@ -17,7 +17,7 @@ verify the parts that need live credentials.
 
 ```bash
 source .venv/bin/activate
-pytest            # 40 tests
+pytest            # 46 tests
 ```
 
 | File | Covers |
@@ -99,7 +99,7 @@ Last full run: 2026-06-18 (local machine, Python 3.12).
 
 | Check | Status |
 |---|---|
-| `pytest` (40 tests) | ✅ pass |
+| `pytest` (46 tests) | ✅ pass |
 | CLI: `review/learn/serve/history --help` | ✅ pass |
 | `copilot history` on fresh DB | ✅ pass |
 | Dashboard compiles | ✅ pass |

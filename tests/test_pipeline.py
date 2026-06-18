@@ -32,8 +32,15 @@ def _summary():
 
 class FakeGitHubClient:
     def __init__(self, existing_comments=None):
+        # existing_comments: list of {"path","line","body"} dicts
         self.existing_comments = existing_comments or []
         self.posted = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
 
     def get_pull_request(self, owner, repo, number):
         return make_pr(number=number)
@@ -41,8 +48,14 @@ class FakeGitHubClient:
     def get_file_content(self, owner, repo, path, ref):
         return "def add(a, b):\n    return a - b\n"
 
-    def get_review_comment_bodies(self, owner, repo, number):
+    def get_review_comments(self, owner, repo, number):
         return self.existing_comments
+
+    def get_review_comment_bodies(self, owner, repo, number):
+        return [c["body"] for c in self.existing_comments]
+
+    def get_review_summary_bodies(self, owner, repo, number):
+        return []
 
     def post_review(self, owner, repo, number, body, comments):
         self.posted = {"body": body, "comments": comments}
@@ -82,7 +95,9 @@ def test_pipeline_skips_already_posted_comments(fake_claude, tmp_db, monkeypatch
         Finding(file="app/calc.py", line=2, severity="bug", title="beta",
                 issue="i", why_it_matters="w", suggested_fix="fix", confidence="medium")
     )
-    gh = _install(monkeypatch, FakeGitHubClient(existing_comments=[already_posted]))
+    gh = _install(monkeypatch, FakeGitHubClient(existing_comments=[
+        {"path": "app/calc.py", "line": 2, "body": already_posted},
+    ]))
     fake_claude.queue(
         FileReview(findings=[_finding(4, "alpha"), _finding(2, "beta")]),
         Verdicts(verdicts=[Verdict(index=0, keep=True, reason="real"),
