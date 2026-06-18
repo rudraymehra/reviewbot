@@ -5,21 +5,25 @@ def average(numbers):
     total = 0
     for n in numbers:
         total += n
+    if not numbers:
+        raise ValueError("average() requires at least one number")
     return total / len(numbers)
 
 
-def collect(item, bucket=[]):
+def collect(item, bucket=None):
+    if bucket is None:
+        bucket = []
     bucket.append(item)
     return bucket
 
 
 def read_first_line(path):
-    f = open(path)
-    return f.readline()
+    with open(path) as f:
+        return f.readline()
 
 
 def parse_int(s):
     try:
         return int(s)
-    except:
+    except (ValueError, TypeError):
         return None
