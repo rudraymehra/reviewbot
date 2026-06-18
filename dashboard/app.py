@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from copilot.config import get_settings  # noqa: E402
 from copilot.models import SEVERITY_EMOJI  # noqa: E402
+from copilot.pricing import estimate_cost  # noqa: E402
 
 st.set_page_config(page_title="Code Review Copilot", page_icon="🔍", layout="wide")
 st.title("🔍 Code Review Copilot — Dashboard")
@@ -47,9 +48,9 @@ c3.metric("Total findings", int(df.finding_count.sum()))
 total_in = int(df.input_tokens.sum())
 total_cached = int(df.cached_tokens.sum()) if "cached_tokens" in df else 0
 total_out = int(df.output_tokens.sum())
-# claude-opus-4-8 pricing: $5 / $25 per MTok; cached input reads bill at ~0.1x ($0.50/MTok).
-# input_tokens is the UNCACHED remainder, so cached reads must be added separately.
-cost = total_in / 1e6 * 5 + total_cached / 1e6 * 0.5 + total_out / 1e6 * 25
+# Pricing lives in copilot.pricing so the dashboard and `copilot doctor` never drift.
+# input_tokens is the UNCACHED remainder, so cached reads are billed separately inside.
+cost = estimate_cost(total_in, total_cached, total_out)
 c4.metric("Est. API cost", f"${cost:.2f}")
 
 # ---- charts ----
