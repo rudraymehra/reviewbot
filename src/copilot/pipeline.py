@@ -9,9 +9,11 @@ from .config import get_settings
 from .github_client import GitHubClient
 from .models import ReviewResult
 from .poster import (
+    extract_anchors,
     extract_fingerprints,
     findings_to_github_comments,
     fingerprint,
+    is_near_duplicate,
     summary_to_markdown,
 )
 from .reviewer import review_pr
@@ -56,12 +58,20 @@ def run_review(
         skipped_duplicates = 0
         to_post = outcome.findings
         if post:
+            comments = gh.get_review_comments(owner, repo, number)
             existing = extract_fingerprints(
-                gh.get_review_comment_bodies(owner, repo, number)
+                [c["body"] for c in comments]
                 + gh.get_review_summary_bodies(owner, repo, number)
             )
-            if existing:
-                fresh = [f for f in to_post if fingerprint(f) not in existing]
+            # Coarse dedup too: the model can rephrase a finding's title on a
+            # re-review (→ new fingerprint), so also skip a finding when the same
+            # file+severity already has a comment on a nearby line.
+            anchors = extract_anchors(comments)
+            if existing or anchors:
+                fresh = [
+                    f for f in to_post
+                    if fingerprint(f) not in existing and not is_near_duplicate(f, anchors)
+                ]
                 skipped_duplicates = len(to_post) - len(fresh)
                 to_post = fresh
                 if on_progress and skipped_duplicates:

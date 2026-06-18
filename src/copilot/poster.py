@@ -28,6 +28,36 @@ def extract_fingerprints(comment_bodies: list[str]) -> set[str]:
         found.update(FP_MARKER_RE.findall(body))
     return found
 
+
+# Severity tag rendered into every comment body, e.g. "**[BUG]**".
+SEVERITY_TAG_RE = re.compile(r"\*\*\[([A-Z]+)\]\*\*")
+
+
+def extract_anchors(comments: list[dict[str, Any]]) -> list[tuple[str, str, int]]:
+    """(path, severity, line) for existing inline comments, for coarse dedup.
+
+    The exact fingerprint misses a finding when the model rephrases its title on
+    a re-review. This coarser key lets us also skip a finding when the same file
+    already has a comment of the same severity on a nearby line.
+    """
+    anchors: list[tuple[str, str, int]] = []
+    for c in comments:
+        body = c.get("body") or ""
+        line = c.get("line") or c.get("original_line")
+        path = c.get("path")
+        m = SEVERITY_TAG_RE.search(body)
+        if m and path and line is not None:
+            anchors.append((path, m.group(1).lower(), int(line)))
+    return anchors
+
+
+def is_near_duplicate(f: Finding, anchors: list[tuple[str, str, int]], line_window: int = 3) -> bool:
+    """True if an existing comment of the same file+severity sits within line_window lines."""
+    return any(
+        path == f.file and severity == f.severity and abs(line - f.line) <= line_window
+        for path, severity, line in anchors
+    )
+
 RECOMMENDATION_LABEL = {
     "approve": "✅ Approve",
     "approve_with_nits": "✅ Approve (with nits)",

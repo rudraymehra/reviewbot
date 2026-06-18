@@ -151,10 +151,11 @@ class GitHubClient:
         Paginated: a long-lived PR can accumulate >100 comments, and missing the
         tail would make dedup re-post old findings on every push.
         """
-        comments = self._get_paginated(
-            f"/repos/{owner}/{repo}/pulls/{number}/comments"
-        )
-        return [c["body"] for c in comments]
+        return [c["body"] for c in self.get_review_comments(owner, repo, number)]
+
+    def get_review_comments(self, owner: str, repo: str, number: int) -> list[dict[str, Any]]:
+        """Full inline review-comment objects (path/line/body) for dedup."""
+        return self._get_paginated(f"/repos/{owner}/{repo}/pulls/{number}/comments")
 
     def get_review_summary_bodies(self, owner: str, repo: str, number: int) -> list[str]:
         """Bodies of all review summaries on a PR (where 422-fallback comments land)."""
